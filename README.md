@@ -1,3 +1,5 @@
+### Fork trying to make Volumio run on the HP t510 Flexible Thin Client (and other devices using the BCM57780 wired network board)
+
 ### Buildscripts for Volumio System
 
 Copyright Volumio SRL
