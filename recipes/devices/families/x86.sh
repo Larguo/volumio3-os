@@ -53,6 +53,8 @@ MODULES=("overlay" "squashfs"
   "pata_pdc202xx_old" "pata_piccolo" "pata_rdc" "pata_rz1000" "pata_sc1200" "pata_sch" "pata_serverworks"
   "pata_sil680" "pata_sis" "pata_triflex" "pata_via" "pdc_adma" "sata_mv" "sata_nv" "sata_promise"
   "sata_qstor" "sata_sil24" "sata_sil" "sata_sis" "sata_svw" "sata_sx4" "ata_uli" "sata_via" "sata_vsc"
+  # Aditionals for BCM57780
+  "broadcom" "tg3"
 )
 # Packages that will be installed
 PACKAGES=()
