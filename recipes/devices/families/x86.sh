@@ -15,7 +15,7 @@ DEVICENAME="x86"
 DEVICEFAMILY="x86"
 # tarball from DEVICEFAMILY repo to use
 #DEVICEBASE=${DEVICE} # Defaults to ${DEVICE} if unset
-DEVICEREPO="http://github.com/volumio/platform-${DEVICEFAMILY}"
+DEVICEREPO="http://github.com/Larguo/platform-${DEVICEFAMILY}"
 
 ### What features do we want to target
 # TODO: Not fully implemented
