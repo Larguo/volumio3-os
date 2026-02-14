@@ -9,6 +9,9 @@
 
 set -eo pipefail
 
+# Ensure admin binaries are available even in restricted/root PATH environments
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:${PATH}"
+
 SRC="$(dirname "$(realpath "${BASH_SOURCE[0]}")")"
 
 # Load helpers
@@ -360,6 +363,35 @@ if [[ -n "${BUILD}" ]]; then
   log "Creating rootfs in <${BUILD_DIR}>"
 
   #### Build stage 0 - Multistrap
+  declare -A required_tools=(
+    [multistrap]="multistrap"
+    [chroot]="coreutils"
+  )
+
+  missing_tools=()
+  missing_packages=()
+  for tool in "${!required_tools[@]}"; do
+    if ! command -v "${tool}" >/dev/null 2>&1; then
+      missing_tools+=("${tool}")
+      missing_packages+=("${required_tools[$tool]}")
+    fi
+  done
+
+  if [[ ${#missing_tools[@]} -gt 0 ]]; then
+    log "Missing required commands: ${missing_tools[*]}" "wrn"
+    if command -v apt-get >/dev/null 2>&1; then
+      apt-get update && apt-get install -y "${missing_packages[@]}"
+    fi
+  fi
+
+  for tool in "${!required_tools[@]}"; do
+    if ! command -v "${tool}" >/dev/null 2>&1; then
+      log "Required command '${tool}' is not installed" "err"
+      log "Install build dependencies and retry" "info" "apt-get update && apt-get install -y ${required_tools[$tool]}"
+      exit 1
+    fi
+  done
+
   log "Running multistrap for ${BUILD} (${ARCH})" "" "${CONF##*/}"
   multistrap -a "${ARCH}" -d "${ROOTFS}" -f "${CONF}" --simulate >"${LOG_DIR}/multistrap_packages.log"
   # shellcheck disable=SC2069
