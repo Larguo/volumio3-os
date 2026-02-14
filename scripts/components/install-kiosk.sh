@@ -23,10 +23,10 @@ CMP_PACKAGES=(
 
 # Optional font packages vary across suites/mirrors; install best-effort variants.
 OPTIONAL_FONT_PACKAGES=(
-  # Japanese fonts
-  "fonts-ipafont" "fonts-ipafont-gothic" "fonts-vlgothic"
+  # Japanese fonts (buster/bookworm compatible variants)
+  "fonts-ipafont-gothic"
   # Thai fonts
-  "fonts-thai-tlwg-ttf" "fonts-tlwg-garuda" "fonts-tlwg-kinnari"
+  "fonts-tlwg-garuda" "fonts-tlwg-kinnari"
 )
 
 log "Resolving ${#CMP_PACKAGES[@]} ${CMP_NAME} base packages:" "" "${CMP_PACKAGES[*]}"
@@ -44,15 +44,6 @@ done
 
 log "Installing ${#installable_packages[@]} ${CMP_NAME} base packages:" "" "${installable_packages[*]}"
 apt-get install -y "${installable_packages[@]}" --no-install-recommends
-
-for pkg in "${OPTIONAL_FONT_PACKAGES[@]}"; do
-  if apt-cache show "${pkg}" >/dev/null 2>&1; then
-    log "Installing optional font package" "info" "${pkg}"
-    apt-get install -y "${pkg}" --no-install-recommends || log "Optional font package failed" "wrn" "${pkg}"
-  else
-    log "Optional font package not available on this suite" "wrn" "${pkg}"
-  fi
-done
 
 for pkg in "${OPTIONAL_FONT_PACKAGES[@]}"; do
   if apt-cache show "${pkg}" >/dev/null 2>&1; then
