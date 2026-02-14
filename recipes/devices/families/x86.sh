@@ -15,7 +15,7 @@ DEVICENAME="x86"
 DEVICEFAMILY="x86"
 # tarball from DEVICEFAMILY repo to use
 #DEVICEBASE=${DEVICE} # Defaults to ${DEVICE} if unset
-DEVICEREPO="http://github.com/volumio/platform-${DEVICEFAMILY}"
+DEVICEREPO="http://github.com/Larguo/platform-${DEVICEFAMILY}"
 
 ### What features do we want to target
 # TODO: Not fully implemented
@@ -55,20 +55,19 @@ MODULES=("overlay" "squashfs"
   "pata_pdc202xx_old" "pata_piccolo" "pata_rdc" "pata_rz1000" "pata_sc1200" "pata_sch" "pata_serverworks"
   "pata_sil680" "pata_sis" "pata_triflex" "pata_via" "pdc_adma" "sata_mv" "sata_nv" "sata_promise"
   "sata_qstor" "sata_sil24" "sata_sil" "sata_sis" "sata_svw" "sata_sx4" "ata_uli" "sata_via" "sata_vsc"
+  # Aditionals for BCM57780
+  "broadcom" "tg3"
 )
 # Packages that will be installed
 PACKAGES=()
 
 # Kernel selection
 # This will be expanded as a glob, you can be as specific or vague as required
-# KERNEL_VERSION=5.10
-# KERNEL_VERSION=6.1
-KERNEL_VERSION=6.6
-
-# Firmware selection
-# FIRMWARE_VERSION="20211027"
-# FIRMWARE_VERSION="20221216"
-FIRMWARE_VERSION="20230804"
+# Kernel / firmware package selectors.
+# Defaults are set to "latest" so x86 images automatically pick up the newest
+# packaged Volumio kernel and firmware set present in the platform repository.
+KERNEL_VERSION="latest"
+FIRMWARE_VERSION="latest"
   
 ### Device customisation
 # Copy the device specific files (Image/DTS/etc..)
@@ -77,16 +76,32 @@ write_device_files() {
   log "Copying kernel files" "info"
   pkg_root="${PLTDIR}/packages-buster"
 
-  cp "${pkg_root}"/linux-image-${KERNEL_VERSION}*_${ARCH}.deb "${ROOTFSMNT}"
+  mapfile -t kernel_pkgs < <(find "${pkg_root}" -maxdepth 1 -type f -name "linux-image-*_${ARCH}.deb" | sort -V)
+  if [ ${#kernel_pkgs[@]} -eq 0 ]; then
+    log "No kernel package found for arch ${ARCH} in ${pkg_root}" "err"
+    exit 1
+  fi
+  kernel_pkg="${kernel_pkgs[-1]}"
+  log "Using kernel package $(basename "${kernel_pkg}")" "info"
+  cp "${kernel_pkg}" "${ROOTFSMNT}"
 
   log "Copying header files, when present" "info"
-  if [ -f "${pkg_root}"/linux-headers-${KERNEL_VERSION}*_${ARCH}.deb ]; then
-    cp "${pkg_root}"/linux-headers-${KERNEL_VERSION}*_${ARCH}.deb "${ROOTFSMNT}"
+  mapfile -t kernel_headers < <(find "${pkg_root}" -maxdepth 1 -type f -name "linux-headers-*_${ARCH}.deb" | sort -V)
+  if [ ${#kernel_headers[@]} -gt 0 ]; then
+    kernel_headers_pkg="${kernel_headers[-1]}"
+    log "Using kernel headers package $(basename "${kernel_headers_pkg}")" "info"
+    cp "${kernel_headers_pkg}" "${ROOTFSMNT}"
   fi
 
   log "Copying the latest firmware into /lib/firmware" "info"
-  log "Unpacking the tar file firmware-${FIRMWARE_VERSION}" "info"
-  tar xfJ "${pkg_root}"/firmware-${FIRMWARE_VERSION}.tar.xz -C "${ROOTFSMNT}"
+  mapfile -t firmware_pkgs < <(find "${pkg_root}" -maxdepth 1 -type f -name "firmware-*.tar.xz" | sort -V)
+  if [ ${#firmware_pkgs[@]} -eq 0 ]; then
+    log "No firmware package found in ${pkg_root}" "err"
+    exit 1
+  fi
+  firmware_pkg="${firmware_pkgs[-1]}"
+  log "Unpacking firmware bundle $(basename "${firmware_pkg}")" "info"
+  tar xfJ "${firmware_pkg}" -C "${ROOTFSMNT}"
 
   #log "Copying Alsa Use Case Manager files"
   #With Buster we seem to have a default install, but it is not complete. Add the missing codecs.
@@ -190,6 +205,12 @@ EOF
   cat <<-EOF >>"${ROOTFSMNT}/etc/modprobe.d/blacklist.conf"
 blacklist snd_pcsp
 blacklist pcspkr
+EOF
+
+  log "Adding BCM57780 ethernet compatibility module options" "info"
+  cat <<-EOF >"${ROOTFSMNT}/etc/modprobe.d/tg3-bcm57780.conf"
+# Improve compatibility on older Broadcom BCM57780 boards.
+options tg3 disable_msi=1
 EOF
 
 }
