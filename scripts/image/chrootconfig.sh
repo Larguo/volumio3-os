@@ -80,7 +80,13 @@ fi
 
 #TODO THIS SHALL RUN ONLY FOR SOME DEVICES WHERE WE WANT TO INSTALL KIOSK
 #TODO: This shall happen before configure.sh which substitutes conf files
-[ -f "/install-kiosk.sh" ] && log "Installing kiosk" "info" && bash install-kiosk.sh
+if [[ -f "/install-kiosk.sh" ]]; then
+  # Some mirrors/suites do not provide these legacy package names.
+  # Sanitize copied kiosk installers to prevent hard failures on missing font package aliases.
+  sed -i -E 's/"fonts-ipafont"[[:space:]]*//g; s/"fonts-vlgothic"[[:space:]]*//g; s/"fonts-thai-tlwg-ttf"[[:space:]]*//g' /install-kiosk.sh
+  log "Installing kiosk" "info"
+  bash install-kiosk.sh
+fi
 if [[ -d "/volumio/customPkgs" ]] && [[ $(ls /volumio/customPkgs/*.deb 2>/dev/null) ]]; then
   log "Installing Volumio customPkgs" "info"
   for deb in /volumio/customPkgs/*.deb; do
