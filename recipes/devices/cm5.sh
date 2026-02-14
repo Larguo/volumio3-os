@@ -16,7 +16,7 @@ DEBUG_IMAGE="no" # yes/no or empty. Also changes SHOW_SPLASH in cmdline.txt
 ### Device information
 # Used to identify devices (VOLUMIO_HARDWARE) and keep backward compatibility
 #VOL_DEVICE_ID="pi"
-DEVICENAME="CM4"
+DEVICENAME="CM5"
 # This is useful for multiple devices sharing the same/similar kernel
 #DEVICEFAMILY="raspberry"
 
@@ -32,37 +32,24 @@ KIOSKMODE=yes
 KIOSKBROWSER=vivaldi
 
 ## Partition info
-BOOT_START=0
-BOOT_END=96
+BOOT_START=1
+BOOT_END=385
+IMAGE_END=4673     # BOOT_END + 4288 MiB (/img squashfs)
 BOOT_TYPE=msdos    # msdos or gpt
 BOOT_USE_UUID=yes  # Add UUID to fstab
 INIT_TYPE="initv3"
+INIT_UUID_TYPE="pi"    # Use block device GPEN or PARTUUID fallback
 
 ## Plymouth theme management
 PLYMOUTH_THEME="volumio-player"	# Choices are: {volumio,volumio-logo,volumio-player}
+INIT_PLYMOUTH_DISABLE="no"		# yes/no or empty. Removes plymouth initialization in init if "yes" is selected
 
-log "VARIANT is ${VARIANT}." "info"
-## INIT_PLYMOUTH_DISABLE removes plymouth initialization in init if "yes" is selected
-if [[ "${VARIANT}" == motivo ]]; then
-	log "Building ${VARIANT}: Removing plymouth from init." "info"
-	INIT_PLYMOUTH_DISABLE="yes"
-else
-	log "Using default plymouth initialization in init." "info"
-	INIT_PLYMOUTH_DISABLE="no"
-fi
-
-## For any KMS DRM panel mudule, which does not create frambuffer bridge, set this variable to yes, otherwise no
-## UPDATE_PLYMOUTH_SERVICES_FOR_KMS_DRM replaces default plymouth systemd services if "yes" is selected
-if [[ "${VARIANT}" == motivo ]]; then
-	log "Building ${VARIANT}: Replacing default plymouth systemd services" "info"
-	UPDATE_PLYMOUTH_SERVICES_FOR_KMS_DRM="yes"
-else
-	log "Using packager default plymouth systemd services" "info"
-	UPDATE_PLYMOUTH_SERVICES_FOR_KMS_DRM="no"
-fi
+## TODO: for any KMS DRM panel mudule, which does not create frambuffer bridge, set this variable to yes, otherwise no
+## Implement an if/else statement to handle this properly
+UPDATE_PLYMOUTH_SERVICES_FOR_KMS_DRM="no"	# yes/no or empty. Replaces default plymouth systemd services if "yes" is selected
 
 # Modules that will be added to initramfs
-MODULES=("drm" "fuse" "nls_cp437" "nls_iso8859_1" "nvme" "nvme_core" "overlay" "panel-dsi-mt" "panel-waveshare-dsi" "squashfs" "uas")
+MODULES=("drm" "fuse" "nls_cp437" "nls_iso8859_1" "nvme" "nvme_core" "overlay" "squashfs" "uas")
 # Packages that will be installed
 PACKAGES=( # Bluetooth packages
 	"bluez-firmware" "pi-bluetooth"
@@ -173,22 +160,10 @@ device_chroot_tweaks_pre() {
 	## Define parameters
 	declare -A PI_KERNELS=(
 		#[KERNEL_VERSION]="SHA|Branch|Rev"
-		[5.10.90]="9a09c1dcd4fae55422085ab6a87cc650e68c4181|master|1512"
-		[5.10.92]="ea9e10e531a301b3df568dccb3c931d52a469106|stable|1514"
-		[5.10.95]="770ca2c26e9cf341db93786d3f03c89964b1f76f|master|1521"
-		[5.15.84]="a99e144e939bf93bbd03e8066601a8d3eae640f7|stable|1613"
-		[5.15.92]="f5c4fc199c8d8423cb427e509563737d1ac21f3c|master|1627"
-		[6.1.19]="fa51258e0239eaf68d9dff9c156cec3a622fbacc|stable|1637"
-		[6.1.21]="f87ad1a3cb8c81e32dc3d541259291605ddaada0|stable|1642"
-		[6.1.47]="f87ad1a3cb8c81e32dc3d541259291605ddaada0|stable|1674"
-		[6.1.57]="12833d1bee03c4ac58dc4addf411944a189f1dfd|master|1688" # Support for Pi5
-		[6.1.58]="7b859959a6642aff44acdfd957d6d66f6756021e|master|1690"
-		[6.1.61]="d1ba55dafdbd33cfb938bca7ec325aafc1190596|master|1696"
-		[6.1.64]="01145f0eb166cbc68dd2fe63740fac04d682133e|master|1702"
-		[6.1.69]="ec8e8136d773de83e313aaf983e664079cce2815|master|1710"
-		[6.1.70]="fc9319fda550a86dc6c23c12adda54a0f8163f22|master|1712"
-		[6.1.77]="5fc4f643d2e9c5aa972828705a902d184527ae3f|master|1730"
 		[6.6.30]="3b768c3f4d2b9a275fafdb53978f126d7ad72a1a|master|1763"
+		[6.6.47]="a0d314ac077cda7cbacee1850e84a57af9919f94|master|1792"
+		[6.6.51]="d5a7dbe77b71974b9abb133a4b5210a8070c9284|master|1796"
+		[6.6.56]="a5efb544aeb14338b481c3bdc27f709e8ee3cf8c|master|1803"
 		[6.6.62]="9a9bda382acec723c901e5ae7c7f415d9afbf635|master|1816"
 	)
 	# Version we want
@@ -201,8 +176,8 @@ device_chroot_tweaks_pre() {
 	# List of custom firmware -
 	# github archives that can be extracted directly
 	declare -A CustomFirmware=(
+		[brcmfmac43430b0]="https://raw.githubusercontent.com/volumio/volumio3-os-static-assets/master/firmwares/brcmfmac43430b0/brcmfmac43430b0.tar.gz"
 		[PiCustom]="https://raw.githubusercontent.com/Darmur/volumio-rpi-custom/main/output/modules-rpi-${KERNEL_VERSION}-custom.tar.gz"
-		[MotivoCustom]="https://github.com/volumio/motivo-drivers/raw/main/output/modules-rpi-${KERNEL_VERSION}-motivo.tar.gz"
 		[RPiUserlandTools]="https://github.com/volumio/volumio3-os-static-assets/raw/master/tools/rpi-softfp-vc.tar.gz"
 	)
 
@@ -242,6 +217,13 @@ device_chroot_tweaks_pre() {
 		log "Removing ${KERNEL_VERSION}-v7+ Kernel and modules" "info"
 		rm -rf /boot/kernel7.img
 		rm -rf "/lib/modules/${KERNEL_VERSION}-v7+"
+	fi
+
+	# Remove RPi3/RPi4 32bit kernel
+	if [ -d "/lib/modules/${KERNEL_VERSION}-v7l+" ]; then
+		log "Removing ${KERNEL_VERSION}-v7l+ Kernel and modules" "info"
+		rm -rf /boot/kernel7l.img
+		rm -rf "/lib/modules/${KERNEL_VERSION}-v7l+"
 	fi
 
 	# Remove Pi5 16K kernel
@@ -311,7 +293,7 @@ device_chroot_tweaks_pre() {
 
 	NODE_VERSION=$(node --version)
 	log "Node version installed:" "dbg" "${NODE_VERSION}"
-
+	
 	log "Adding gpio & spi group and permissions" "info"
 	groupadd -f --system gpio
 	groupadd -f --system spi
@@ -334,6 +316,18 @@ device_chroot_tweaks_pre() {
 	cat <<-EOF >/etc/ld.so.conf.d/00-vmcs.conf
 		/opt/vc/lib
 	EOF
+
+	log "Adding xorg configuration for kiosk mode with vc4-kms-v3d overlay" "info"
+	mkdir -p /etc/X11/xorg.conf.d
+	cat <<-EOF >/etc/X11/xorg.conf.d/99-vc4.conf
+		Section "OutputClass"
+			Identifier "vc4"
+			MatchDriver "vc4"
+			Driver "modesetting"
+			Option "PrimaryGPU" "true"
+		EndSection
+	EOF
+
 	log "Updating LD_LIBRARY_PATH" "info"
 	ldconfig
 
@@ -366,12 +360,25 @@ device_chroot_tweaks_pre() {
 		### DO NOT EDIT THIS FILE ###
 		### APPLY CUSTOM PARAMETERS TO userconfig.txt ###
 		initramfs volumio.initrd
-		gpu_mem=128
 		dtparam=ant2
-		max_framebuffers=1
-		disable_splash=1
-		force_eeprom_read=0
+		dtparam=i2c=on
+		dtparam=i2c_arm=on
+		dtparam=uart0=on
+		dtparam=uart1=off
 		dtparam=audio=off
+		dtparam=nvme
+		dtparam=pciex1_gen=2
+		arm_64bit=1
+		gpu_mem=256
+		enable_uart=1
+		max_framebuffers=2
+		hdmi_force_hotplug=1
+		display_auto_detect=1
+		disable_splash=1
+		disable_overscan=1
+		max_usb_current=1
+		usb_max_current_enable=1
+		force_eeprom_read=0
 		start_x=1
 		include volumioconfig.txt
 		include userconfig.txt
@@ -381,14 +388,8 @@ device_chroot_tweaks_pre() {
 	cat <<-EOF >/boot/volumioconfig.txt
 		### DO NOT EDIT THIS FILE ###
 		### APPLY CUSTOM PARAMETERS TO userconfig.txt ###
-		display_auto_detect=1
-		enable_uart=1
-		arm_64bit=1
-		dtparam=uart0=on
-		dtparam=uart1=off
 		dtoverlay=dwc2,dr_mode=host
-		otg_mode=1
-		dtoverlay=vc4-kms-v3d,cma-384,audio=off,noaudio=on
+		dtoverlay=vc4-kms-v3d-pi5,cma-384
 	EOF
 
 	log "Writing cmdline.txt file" "info"
@@ -469,15 +470,11 @@ device_chroot_tweaks_pre() {
 	EOF
 
 	# Rerun depmod for new drivers
-	if [ -d "/lib/modules/${KERNEL_VERSION}-v7l+" ]; then
-		log "Finalising drivers installation with depmod on ${KERNEL_VERSION}-v7l+"
-		depmod "${KERNEL_VERSION}-v7l+" # CM4 with 32bit kernel
-	fi
 	if [ -d "/lib/modules/${KERNEL_VERSION}-v8+" ]; then
 		log "Finalising drivers installation with depmod on ${KERNEL_VERSION}-v8+"
-		depmod "${KERNEL_VERSION}-v8+" # CM4 with 64bit kernel
+		depmod "${KERNEL_VERSION}-v8+" # CM5 with 64bit kernel
 	fi
-	log "CM4 Kernel and Modules installed" "okay"
+	log "CM5 Kernel and Modules installed" "okay"
 }
 
 # Will be run in chroot - Post initramfs

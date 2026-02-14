@@ -36,7 +36,7 @@ INIT_TYPE="initv3"
 # Modules that will be added to intramsfs
 MODULES=("overlay" "overlayfs" "squashfs" "nls_cp437"  "fuse")
 # Packages that will be installed
-PACKAGES=("bluez-firmware" "bluetooth" "bluez" "bluez-tools")
+PACKAGES=("bluez-firmware")
 
 ### Device customisation
 # Copy the device specific files (Image/DTS/etc..)
@@ -88,6 +88,9 @@ EOF
   cat <<-EOF >/etc/udev/rules.d/99-gpio.rules
 	SUBSYSTEM=="gpio*", PROGRAM="/bin/sh -c 'find -L /sys/class/gpio/ -maxdepth 2 -exec chown root:gpio {} \; -exec chmod 770 {} \; || true'"
 	EOF
+
+  log "Fix for Volumio Remote updater"
+  sed -i '10i\RestartSec=5' /lib/systemd/system/volumio-remote-updater.service
 }
 
 # Will be run in chroot - Post initramfs

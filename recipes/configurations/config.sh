@@ -3,17 +3,16 @@
 
 declare -A SecureApt=(
   [debian_10.gpg]="https://repo.volumio.org/Volumio2/archive-key-10.asc"
-  [nodesource.gpg]="https://deb.nodesource.com/gpgkey/nodesource.gpg.key"
   [lesbonscomptes.gpg]="https://www.lesbonscomptes.com/pages/lesbonscomptes.gpg"
   #TODO Not needed for arm64 and x86
-  [raspbian.gpg]="https://archive.raspbian.org/raspbian.public.key"
-  [raspberrypi.gpg]="http://archive.raspberrypi.org/debian/raspberrypi.gpg.key"
+  [raspbian.gpg]="http://apt2.volumio.org/raspbian/raspbian.public.key"
+  [raspberrypi.gpg]="http://archive2.volumio.org/debian/raspberrypi.gpg.key"
 )
 
 # Repo locations that are utilised to create source.list in the rootfs
 declare -A APTSOURCE=(
-  [Debian]="http://deb.debian.org/debian"
-  [Raspbian]="http://raspbian.raspberrypi.org/raspbian/"
+  [Debian]="http://archive.debian.org/debian"
+  [Raspbian]="http://apt2.volumio.org/raspbian/"
 )
 
 ## Path to the volumio repo
@@ -40,6 +39,7 @@ declare -A CUSTOM_PKGS=(
   [alsacap]="https://github.com/volumio/volumio3-os-static-assets/raw/master/custom-packages/alsacap/alsacap_1.0-1"
   [libcurl]="https://github.com/volumio/volumio3-os-static-assets/raw/master/custom-packages/curl/00libcurl4_7.74.0-1.2~bpo10%2B1"
   [curl]="https://github.com/volumio/volumio3-os-static-assets/raw/master/custom-packages/curl/curl_7.74.0-1.2~bpo10%2B1"
+  [bluez]="https://github.com/volumio/volumio3-os-static-assets/raw/master/custom-packages/bluetooth/bluez/bluez_5.83-1volumiobuster1"
 )
 
 ## Backend and Frontend Repository details
@@ -49,7 +49,8 @@ VOL_BE_REPO_BRANCH="master"
 ## NodeJS Controls
 # Semver is only used w.t.r modules fetched from repo,
 # actual node version installs only respects the current major versions (Major.x)
-# NODE_VERSION=14
+# Make sure to reflect the major in  scripts/image/chrootconfig.sh:236
+NODE_VERSION_MAJOR=14
 NODE_VERSION=14.15.4
 # Used to pull the right version of modules
 # expected format node_modules_{arm/x86}-v${NODE_VERSION}.tar.gz

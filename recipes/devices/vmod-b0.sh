@@ -1,23 +1,26 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC2034
 
-## Setup for BananaPi M1 device board
-DEVICE_SUPPORT_TYPE="C" # First letter (Community Porting|Supported Officially|OEM)
+## Setup for Volumio VMOD-B0 Module
+DEVICE_SUPPORT_TYPE="O" # First letter (Community Porting|Supported Officially|OEM)
 DEVICE_STATUS="P"       # First letter (Planned|Test|Maintenance)
 
 # Base system
 BASE="Debian"
 ARCH="armhf"
 BUILD="armv7"
-UINITRD_ARCH="arm" # Instruct mkimage to use the correct architecture on arm{64} devices
+UINITRD_ARCH="arm64"
+
+### Build image with initramfs debug info?
+DEBUG_IMAGE="no" # yes/no or empty.
 
 ### Device information
-DEVICENAME="BananaPi M1" # Pretty name
+DEVICENAME="VMOD-B0"
 # This is useful for multiple devices sharing the same/similar kernel
-DEVICEFAMILY="bananapi-legacy"
+DEVICEFAMILY="vmod"
 # tarball from DEVICEFAMILY repo to use
 #DEVICEBASE=${DEVICE} # Defaults to ${DEVICE} if unset
-DEVICEREPO="https://github.com/volumio/platform-${DEVICEFAMILY}"
+DEVICEREPO="https://github.com/Darmur/platform-${DEVICEFAMILY}.git"
 
 ### What features do we want to target
 # TODO: Not fully implement
@@ -26,18 +29,22 @@ MYVOLUMIO=no
 VOLINITUPDATER=yes
 KIOSKMODE=yes
 KIOSKBROWSER=vivaldi
+
+# Plymouth theme
 PLYMOUTH_THEME="volumio-player"
 
 ## Partition info
-BOOT_START=20
-BOOT_END=148
+BOOT_START=17
+BOOT_END=273
+IMAGE_END=3985     # BOOT_END + 3712 MiB (/img squashfs)
 BOOT_TYPE=msdos          # msdos or gpt
+BOOT_USE_UUID=yes        # Add UUID to fstab
 INIT_TYPE="initv3"
 
 # Modules that will be added to intramsfs
-MODULES=("overlay" "overlayfs" "squashfs" "nls_cp437" "fuse")
+MODULES=("overlay" "overlayfs" "squashfs" "nls_cp437"  "fuse")
 # Packages that will be installed
-PACKAGES=("bluez-firmware")
+PACKAGES=("lirc" "fbset" "mc" "abootimg" "bluez-firmware" "linux-base" "triggerhappy")
 
 ### Device customisation
 # Copy the device specific files (Image/DTS/etc..)
@@ -47,27 +54,55 @@ write_device_files() {
   cp -dR "${PLTDIR}/${DEVICE}/boot" "${ROOTFSMNT}"
   cp -pdR "${PLTDIR}/${DEVICE}/lib/modules" "${ROOTFSMNT}/lib"
   cp -pdR "${PLTDIR}/${DEVICE}/lib/firmware" "${ROOTFSMNT}/lib"
-
-  log "Add asound.conf for onboard DAC settings" "ext"
-  mkdir -p "${ROOTFSMNT}/var/lib/alsa"
-  cp "${PLTDIR}/${DEVICE}/var/lib/alsa/asound.state" "${ROOTFSMNT}/var/lib/alsa/asound.state"
 }
 
 write_device_bootloader() {
   log "Running write_device_bootloader" "ext"
-  dd if="${PLTDIR}/${DEVICE}/u-boot/u-boot-sunxi-with-spl.bin" of="${LOOP_DEV}" bs=1024 seek=8 conv=notrunc
+  dd if="${PLTDIR}/${DEVICE}/u-boot/u-boot-rockchip.bin" of="${LOOP_DEV}" bs=32k seek=1 conv=notrunc status=none
 }
 
 # Will be called by the image builder for any customisation
 device_image_tweaks() {
-	log "Copying custom initramfs script functions" "cfg"
-	[ -d ${ROOTFSMNT}/root/scripts ] || mkdir ${ROOTFSMNT}/root/scripts
-	cp "${SRC}/scripts/initramfs/custom/non-uuid-devices/custom-functions" ${ROOTFSMNT}/root/scripts
+  :
+}
+
+### Chroot tweaks
+# Will be run in chroot (before other things)
+device_chroot_tweaks() {
+  :
 }
 
 # Will be run in chroot - Pre initramfs
 device_chroot_tweaks_pre() {
   log "Performing device_chroot_tweaks_pre" "ext"
+  log "Fixing armv8 deprecated instruction emulation with armv7 rootfs"
+  cat <<-EOF >>/etc/sysctl.conf
+abi.cp15_barrier=2
+EOF
+
+  log "Creating boot parameters from template"
+  sed -i "s/rootdev=UUID=/rootdev=UUID=${UUID_BOOT}/g" /boot/armbianEnv.txt
+  sed -i "s/imgpart=UUID=/imgpart=UUID=${UUID_IMG}/g" /boot/armbianEnv.txt
+  sed -i "s/bootpart=UUID=/bootpart=UUID=${UUID_BOOT}/g" /boot/armbianEnv.txt
+  sed -i "s/datapart=UUID=/datapart=UUID=${UUID_DATA}/g" /boot/armbianEnv.txt
+
+  log "Deactivate Armbian bootlogo and consolearg settings" "info"
+  sed -i "s/splash=verbose//" /boot/boot.cmd
+  sed -i "s/splash plymouth.ignore-serial-consoles//" /boot/boot.cmd
+
+  log "Configure debug or default kernel parameters" "cfg"
+  if [ "${DEBUG_IMAGE}" == "yes" ]; then
+    log "Configuring DEBUG kernel parameters" "info"
+    sed -i "s/loglevel=\${verbosity}/loglevel=8 nosplash break= use_kmsg=yes/" /boot/boot.cmd
+  else
+    log "Configuring default kernel parameters" "info"
+    sed -i "s/loglevel=\${verbosity}/quiet loglevel=0/" /boot/boot.cmd
+     if [[ -n "${PLYMOUTH_THEME}" ]]; then
+      log "Adding splash kernel parameters" "cfg"
+      sed -i "s/loglevel=0/loglevel=0 splash plymouth.ignore-serial-consoles initramfs.clear/" /boot/boot.cmd
+    fi
+  fi
+
   log "Adding gpio group and udev rules"
   groupadd -f --system gpio
   usermod -aG gpio volumio
@@ -75,6 +110,9 @@ device_chroot_tweaks_pre() {
   cat <<-EOF >/etc/udev/rules.d/99-gpio.rules
 	SUBSYSTEM=="gpio*", PROGRAM="/bin/sh -c 'find -L /sys/class/gpio/ -maxdepth 2 -exec chown root:gpio {} \; -exec chmod 770 {} \; || true'"
 	EOF
+
+  log "Fix for Volumio Remote updater"
+  sed -i '10i\RestartSec=5' /lib/systemd/system/volumio-remote-updater.service
 }
 
 # Will be run in chroot - Post initramfs
@@ -96,4 +134,3 @@ device_image_tweaks_post() {
     mkimage -A arm -T script -C none -d "${ROOTFSMNT}"/boot/boot.cmd "${ROOTFSMNT}"/boot/boot.scr
   fi
 }
-
