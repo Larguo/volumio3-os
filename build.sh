@@ -9,6 +9,9 @@
 
 set -eo pipefail
 
+# Ensure admin binaries are available even in restricted/root PATH environments
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:${PATH}"
+
 SRC="$(dirname "$(realpath "${BASH_SOURCE[0]}")")"
 
 # Load helpers
@@ -228,6 +231,25 @@ function patch_multistrap_conf() {
   esac
 }
 
+function fetch_with_retries() {
+  local url="$1"
+  local output="$2"
+  local label="${3:-file}"
+  local attempts="${4:-4}"
+  local delay="${5:-3}"
+  local try
+
+  for ((try = 1; try <= attempts; try++)); do
+    if wget -nv --timeout=30 --tries=1 "${url}" -O "${output}"; then
+      return 0
+    fi
+    log "${label} download failed (attempt ${try}/${attempts})" "wrn"
+    [[ ${try} -lt ${attempts} ]] && sleep "${delay}"
+  done
+
+  return 1
+}
+
 function check_supported_device() {
 
   if [[ -n "${DEVICE}" ]]; then # Device flag was provided
@@ -360,17 +382,34 @@ if [[ -n "${BUILD}" ]]; then
   log "Creating rootfs in <${BUILD_DIR}>"
 
   #### Build stage 0 - Multistrap
-  if ! command -v multistrap >/dev/null 2>&1; then
-    log "Command 'multistrap' is missing; attempting automatic install" "wrn"
+  declare -A required_tools=(
+    [multistrap]="multistrap"
+    [chroot]="coreutils"
+  )
+
+  missing_tools=()
+  missing_packages=()
+  for tool in "${!required_tools[@]}"; do
+    if ! command -v "${tool}" >/dev/null 2>&1; then
+      missing_tools+=("${tool}")
+      missing_packages+=("${required_tools[$tool]}")
+    fi
+  done
+
+  if [[ ${#missing_tools[@]} -gt 0 ]]; then
+    log "Missing required commands: ${missing_tools[*]}" "wrn"
     if command -v apt-get >/dev/null 2>&1; then
-      apt-get update && apt-get install -y multistrap
+      apt-get update && apt-get install -y "${missing_packages[@]}"
     fi
   fi
-  if ! command -v multistrap >/dev/null 2>&1; then
-    log "Required command 'multistrap' is not installed" "err"
-    log "Install build dependencies and retry" "info" "apt-get update && apt-get install -y multistrap"
-    exit 1
-  fi
+
+  for tool in "${!required_tools[@]}"; do
+    if ! command -v "${tool}" >/dev/null 2>&1; then
+      log "Required command '${tool}' is not installed" "err"
+      log "Install build dependencies and retry" "info" "apt-get update && apt-get install -y ${required_tools[$tool]}"
+      exit 1
+    fi
+  done
 
   log "Running multistrap for ${BUILD} (${ARCH})" "" "${CONF##*/}"
   multistrap -a "${ARCH}" -d "${ROOTFS}" -f "${CONF}" --simulate >"${LOG_DIR}/multistrap_packages.log"
@@ -554,7 +593,8 @@ if [[ -n "${DEVICE}" ]]; then
       url=${CUSTOM_PKGS[$key]}
       [[ "${url}" != *".deb"$ ]] && url="${url}_${BUILD}.deb"
       # log "Fetching ${key} from ${url}"
-      wget -nv "${url}" -P "${ROOTFS}/volumio/customPkgs/" || {
+      output="${ROOTFS}/volumio/customPkgs/$(basename "${url}")"
+      fetch_with_retries "${url}" "${output}" "${key}" || {
         log "${key} wasn't successful for ${BUILD}!" "err"
         exit_error ${LINENO} && exit 1
       }
@@ -570,7 +610,7 @@ if [[ -n "${DEVICE}" ]]; then
   for key in "${!ALSA_PLUGINS[@]}"; do  
     url=${ALSA_PLUGINS[$key]}${BUILD}-libasound_module_pcm_$key.so
     # log "Fetching ${key} from ${url}"
-    wget -nv "${url}" -O "${ALSA_DIR_PARENT}/alsa-lib/libasound_module_pcm_$key.so" || {
+    fetch_with_retries "${url}" "${ALSA_DIR_PARENT}/alsa-lib/libasound_module_pcm_$key.so" "${key} ALSA plugin" || {
       log "${key} ALSA plugin not found for ${BUILD}!" "err"
       exit_error ${LINENO} && exit 1
     }
