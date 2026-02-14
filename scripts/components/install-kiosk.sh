@@ -54,6 +54,15 @@ for pkg in "${OPTIONAL_FONT_PACKAGES[@]}"; do
   fi
 done
 
+for pkg in "${OPTIONAL_FONT_PACKAGES[@]}"; do
+  if apt-cache show "${pkg}" >/dev/null 2>&1; then
+    log "Installing optional font package" "info" "${pkg}"
+    apt-get install -y "${pkg}" --no-install-recommends || log "Optional font package failed" "wrn" "${pkg}"
+  else
+    log "Optional font package not available on this suite" "wrn" "${pkg}"
+  fi
+done
+
 log "${CMP_NAME} Dependencies installed!"
 
 log "Creating ${CMP_NAME} dirs and scripts"
