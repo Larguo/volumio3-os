@@ -1,3 +1,5 @@
+### Fork trying to make Volumio run on the HP t510 Flexible Thin Client (and other devices using the BCM57780 wired network board)
+
 ### Buildscripts for Volumio System
 
 Copyright Volumio SRL
@@ -39,7 +41,7 @@ zip
 - Clone the build repo, and launch the build script (requires root permissions).
 
 ```
-git clone https://github.com/volumio/volumio3-os.git build
+git clone https://github.com/Larguo/volumio3-os.git build
 cd ./build
 ./build.sh -b <architecture> -d <device> -v <version>
 ```
