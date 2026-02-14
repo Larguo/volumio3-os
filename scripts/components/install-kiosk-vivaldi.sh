@@ -16,14 +16,29 @@ CMP_PACKAGES=(
   "openbox" "xorg" "xinit" "libexif12" "unclutter" "libu2f-udev" "libvulkan1" "xinput"
   # Browser dependencies 
   "fonts-liberation" "libatk-bridge2.0-0" "libatk1.0-0" "libatspi2.0-0" "libgtk-3-0" "libnspr4" "libnss3" "xdg-utils"
-  # Fonts
+  # Fonts (base)
   "fonts-arphic-ukai" "fonts-arphic-gbsn00lp" "fonts-unfonts-core"
-  # Fonts for Japanese and Thai languages
-  "fonts-ipafont" "fonts-vlgothic" "fonts-thai-tlwg-ttf"
 )
 
-log "Installing ${#CMP_PACKAGES[@]} ${CMP_NAME} packages:" "" "${CMP_PACKAGES[*]}"
+# Optional font packages vary across suites/mirrors; install best-effort variants.
+OPTIONAL_FONT_PACKAGES=(
+  # Japanese fonts
+  "fonts-ipafont" "fonts-ipafont-gothic" "fonts-vlgothic"
+  # Thai fonts
+  "fonts-thai-tlwg-ttf" "fonts-tlwg-garuda" "fonts-tlwg-kinnari"
+)
+
+log "Installing ${#CMP_PACKAGES[@]} ${CMP_NAME} base packages:" "" "${CMP_PACKAGES[*]}"
 apt-get install -y "${CMP_PACKAGES[@]}" --no-install-recommends
+
+for pkg in "${OPTIONAL_FONT_PACKAGES[@]}"; do
+  if apt-cache show "${pkg}" >/dev/null 2>&1; then
+    log "Installing optional font package" "info" "${pkg}"
+    apt-get install -y "${pkg}" --no-install-recommends || log "Optional font package failed" "wrn" "${pkg}"
+  else
+    log "Optional font package not available on this suite" "wrn" "${pkg}"
+  fi
+done
 
 log "${CMP_NAME} Dependencies installed!"
 
