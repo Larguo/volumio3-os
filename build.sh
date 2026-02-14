@@ -361,6 +361,12 @@ if [[ -n "${BUILD}" ]]; then
 
   #### Build stage 0 - Multistrap
   if ! command -v multistrap >/dev/null 2>&1; then
+    log "Command 'multistrap' is missing; attempting automatic install" "wrn"
+    if command -v apt-get >/dev/null 2>&1; then
+      apt-get update && apt-get install -y multistrap
+    fi
+  fi
+  if ! command -v multistrap >/dev/null 2>&1; then
     log "Required command 'multistrap' is not installed" "err"
     log "Install build dependencies and retry" "info" "apt-get update && apt-get install -y multistrap"
     exit 1
