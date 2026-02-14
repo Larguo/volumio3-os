@@ -231,6 +231,25 @@ function patch_multistrap_conf() {
   esac
 }
 
+function fetch_with_retries() {
+  local url="$1"
+  local output="$2"
+  local label="${3:-file}"
+  local attempts="${4:-4}"
+  local delay="${5:-3}"
+  local try
+
+  for ((try = 1; try <= attempts; try++)); do
+    if wget -nv --timeout=30 --tries=1 "${url}" -O "${output}"; then
+      return 0
+    fi
+    log "${label} download failed (attempt ${try}/${attempts})" "wrn"
+    [[ ${try} -lt ${attempts} ]] && sleep "${delay}"
+  done
+
+  return 1
+}
+
 function check_supported_device() {
 
   if [[ -n "${DEVICE}" ]]; then # Device flag was provided
@@ -574,7 +593,8 @@ if [[ -n "${DEVICE}" ]]; then
       url=${CUSTOM_PKGS[$key]}
       [[ "${url}" != *".deb"$ ]] && url="${url}_${BUILD}.deb"
       # log "Fetching ${key} from ${url}"
-      wget -nv "${url}" -P "${ROOTFS}/volumio/customPkgs/" || {
+      output="${ROOTFS}/volumio/customPkgs/$(basename "${url}")"
+      fetch_with_retries "${url}" "${output}" "${key}" || {
         log "${key} wasn't successful for ${BUILD}!" "err"
         exit_error ${LINENO} && exit 1
       }
@@ -590,7 +610,7 @@ if [[ -n "${DEVICE}" ]]; then
   for key in "${!ALSA_PLUGINS[@]}"; do  
     url=${ALSA_PLUGINS[$key]}${BUILD}-libasound_module_pcm_$key.so
     # log "Fetching ${key} from ${url}"
-    wget -nv "${url}" -O "${ALSA_DIR_PARENT}/alsa-lib/libasound_module_pcm_$key.so" || {
+    fetch_with_retries "${url}" "${ALSA_DIR_PARENT}/alsa-lib/libasound_module_pcm_$key.so" "${key} ALSA plugin" || {
       log "${key} ALSA plugin not found for ${BUILD}!" "err"
       exit_error ${LINENO} && exit 1
     }
