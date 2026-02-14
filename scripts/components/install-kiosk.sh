@@ -29,8 +29,30 @@ OPTIONAL_FONT_PACKAGES=(
   "fonts-thai-tlwg-ttf" "fonts-tlwg-garuda" "fonts-tlwg-kinnari"
 )
 
-log "Installing ${#CMP_PACKAGES[@]} ${CMP_NAME} base packages:" "" "${CMP_PACKAGES[*]}"
-apt-get install -y "${CMP_PACKAGES[@]}" --no-install-recommends
+log "Resolving ${#CMP_PACKAGES[@]} ${CMP_NAME} base packages:" "" "${CMP_PACKAGES[*]}"
+installable_packages=()
+for pkg in "${CMP_PACKAGES[@]}"; do
+  if apt-cache show "${pkg}" >/dev/null 2>&1; then
+    installable_packages+=("${pkg}")
+  elif [[ "${pkg}" == fonts-* ]]; then
+    log "Base font package not available on this suite" "wrn" "${pkg}"
+  else
+    log "Required package not available on this suite" "err" "${pkg}"
+    exit 1
+  fi
+done
+
+log "Installing ${#installable_packages[@]} ${CMP_NAME} base packages:" "" "${installable_packages[*]}"
+apt-get install -y "${installable_packages[@]}" --no-install-recommends
+
+for pkg in "${OPTIONAL_FONT_PACKAGES[@]}"; do
+  if apt-cache show "${pkg}" >/dev/null 2>&1; then
+    log "Installing optional font package" "info" "${pkg}"
+    apt-get install -y "${pkg}" --no-install-recommends || log "Optional font package failed" "wrn" "${pkg}"
+  else
+    log "Optional font package not available on this suite" "wrn" "${pkg}"
+  fi
+done
 
 for pkg in "${OPTIONAL_FONT_PACKAGES[@]}"; do
   if apt-cache show "${pkg}" >/dev/null 2>&1; then
