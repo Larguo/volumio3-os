@@ -588,6 +588,7 @@ if [[ -n "${DEVICE}" ]]; then
     #fi
   elif [[ ${CUSTOM_PKGS[*]} ]]; then
     log "Adding customPkgs from external repo" "info"
+    mkdir -p "${ROOTFS}"/volumio/customPkgs
     for key in "${!CUSTOM_PKGS[@]}"; do
       # TODO: Test if key is specific to BUILD or not!
       url=${CUSTOM_PKGS[$key]}
