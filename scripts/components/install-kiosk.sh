@@ -190,7 +190,7 @@ if [[ ${VOLUMIO_HARDWARE} != motivo ]]; then
 
   log "Setting HDMI UI enabled by default"
   config_path="/volumio/app/plugins/system_controller/system/config.json"
-  # Should be okay right?
-  #shellcheck disable=SC2094
-  cat <<<"$(jq '.hdmi_enabled={value:true, type:"boolean"}' ${config_path})" >${config_path}
+  tmp_config="$(mktemp)"
+  jq '.hdmi_enabled={"value":true,"type":"boolean"}' "${config_path}" >"${tmp_config}"
+  mv "${tmp_config}" "${config_path}"
 fi
