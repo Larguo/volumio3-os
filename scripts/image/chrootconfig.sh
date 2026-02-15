@@ -83,7 +83,32 @@ fi
 if [[ -f "/install-kiosk.sh" ]]; then
   # Some mirrors/suites do not provide these legacy package names.
   # Sanitize copied kiosk installers to prevent hard failures on missing font package aliases.
-  sed -i -E 's/"fonts-ipafont"[[:space:]]*//g; s/"fonts-vlgothic"[[:space:]]*//g; s/"fonts-thai-tlwg-ttf"[[:space:]]*//g' /install-kiosk.sh
+  declare -A kiosk_font_replacements=(
+    ["fonts-ipafont"]="fonts-ipafont-gothic fonts-ipafont-mincho"
+    ["fonts-vlgothic"]="fonts-ipafont-gothic fonts-ipafont-mincho"
+    ["fonts-thai-tlwg-ttf"]="fonts-tlwg-garuda fonts-tlwg-kinnari"
+  )
+
+  for legacy_pkg in "${!kiosk_font_replacements[@]}"; do
+    grep -q "${legacy_pkg}" /install-kiosk.sh || continue
+
+    replacement_pkg=""
+    for candidate_pkg in ${kiosk_font_replacements["${legacy_pkg}"]}; do
+      if apt-cache show "${candidate_pkg}" >/dev/null 2>&1; then
+        replacement_pkg="${candidate_pkg}"
+        break
+      fi
+    done
+
+    if [[ -n "${replacement_pkg}" ]]; then
+      log "Replacing legacy kiosk font package alias" "cfg" "${legacy_pkg} -> ${replacement_pkg}"
+      sed -i -E "s/\\<${legacy_pkg}\\>/${replacement_pkg}/g" /install-kiosk.sh
+    else
+      log "Removing unavailable legacy kiosk font package alias" "wrn" "${legacy_pkg}"
+      sed -i -E "s/[\"']?${legacy_pkg}[\"']?[[:space:]]*//g" /install-kiosk.sh
+    fi
+  done
+
   log "Installing kiosk" "info"
   bash install-kiosk.sh
 fi
