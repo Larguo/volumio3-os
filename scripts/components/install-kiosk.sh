@@ -147,8 +147,10 @@ fi
 
 
 # Wait for Volumio webUI to be available
-while true; do timeout 5 bash -c "</dev/tcp/127.0.0.1/3000" >/dev/null 2>&1 && break; done
-echo "Waited \$((\$(date +%s) - start)) sec for Volumio UI"
+while true; do
+  curl -fsS --max-time 5 http://127.0.0.1:3000/ >/dev/null 2>&1 && break
+done
+echo "Volumio UI is reachable"
 
 openbox-session &
   /usr/bin/chromium \\
